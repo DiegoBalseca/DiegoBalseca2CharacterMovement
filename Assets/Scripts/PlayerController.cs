@@ -76,6 +76,29 @@ public class PlayerController : MonoBehaviour
         }
 
         Gravity();
+
+        if(_aimAction.WasPressedThisFrame())
+        {
+            Attack();
+        }
+    }
+
+    
+
+
+    void Attack()
+    {
+        Ray ray = Camera.main.ScreenPointToRay(_lookInput);
+        RaycastHit hit;
+        if (Physics.Raycast(ray, out hit, Mathf.Infinity))
+        {
+            IDamageable enemyScript = hit.transform.GetComponent<IDamageable>();
+
+           if(enemyScript != null)
+           {
+                enemyScript.TakeDamage();
+           }
+        }
     }
 
     void Movement()
