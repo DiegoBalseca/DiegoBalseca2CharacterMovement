@@ -1,11 +1,12 @@
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.InputSystem;
+using UnityEngine.InputSystem; 
 
 public class PlayerController : MonoBehaviour
 {
     //Componentes
     private CharacterController _controller;
+    private Animator _animator;
 
     //Inputs
     private InputAction _moveAction;
@@ -38,10 +39,12 @@ public class PlayerController : MonoBehaviour
     void Awake()
     {
         _controller = GetComponent<CharacterController>();
+        _animator = GetComponentInChildren<Animator>();
         _moveAction = InputSystem.actions["Move"];
         _jumpAction = InputSystem.actions["Jump"];
         _lookAction = InputSystem.actions["Look"];
         _aimAction = InputSystem.actions["Aim"];
+        
 
         _mainCamera = Camera.main.transform;
     }
@@ -105,6 +108,9 @@ public class PlayerController : MonoBehaviour
     {
         Vector3 direction = new Vector3(_moveInput.x, 0, _moveInput.y);
 
+        _animator.SetFloat("Vertical", direction.magnitude);
+        _animator.SetFloat ("Horizontal", 0 );
+
         if (direction != Vector3.zero)
         {
             float targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg + _mainCamera.eulerAngles.y;
@@ -121,6 +127,9 @@ public class PlayerController : MonoBehaviour
     void AimMovement()
     {
         Vector3 direction = new Vector3(_moveInput.x, 0, _moveInput.y);
+
+        _animator.SetFloat("Horizontal", _moveInput.x);
+        _animator.SetFloat("Vertical", _moveInput.y);
         
         float targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg + _mainCamera.eulerAngles.y;
         float smoothAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, _mainCamera.eulerAngles.y, ref _turnSmoothVelocity, _smoothTime);
@@ -172,6 +181,8 @@ public class PlayerController : MonoBehaviour
 
     void Jump()
     {
+        _animator.SetBool("IsJumping", true);
+
         _playerGravity.y = Mathf.Sqrt(_jumpHeight * -2 * _gravity);
 
         _controller.Move(_playerGravity * Time.deltaTime);
@@ -183,9 +194,10 @@ public class PlayerController : MonoBehaviour
         {
             _playerGravity.y += _gravity * Time.deltaTime;
         }
-        else if (IsGrounded() && _playerGravity.y < _gravity)
+        else if (IsGrounded() && _playerGravity.y < 0)
         {
             _playerGravity.y = _gravity;
+            _animator.SetBool("IsJumping", false);
         }
         
 
