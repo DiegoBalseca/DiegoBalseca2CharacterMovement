@@ -1,4 +1,3 @@
-using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.InputSystem; 
 
@@ -18,9 +17,15 @@ public class PlayerController : MonoBehaviour
 
     private InputAction _aimAction;
 
+    private InputAction _grabAction;
+
+    private InputAction _throwAction;
+
 
     [SerializeField] private float _movementSpeed = 5;
     [SerializeField] private float _jumpHeight = 2;
+    [SerializeField] private float _pushForce = 10;
+    [SerializeField] private float _throwForce = 20;
 
     [SerializeField] private float _smoothTime = 0.2f;
     private float _turnSmoothVelocity;
@@ -36,6 +41,13 @@ public class PlayerController : MonoBehaviour
 
     public Transform _mainCamera;
 
+    //Coger cosas
+
+    [SerializeField] private Vector3 _handsSensorSize;
+    [SerializeField] private Transform _hands;
+    [SerializeField] private Transform _grabedObject;
+
+
     void Awake()
     {
         _controller = GetComponent<CharacterController>();
@@ -44,6 +56,8 @@ public class PlayerController : MonoBehaviour
         _jumpAction = InputSystem.actions["Jump"];
         _lookAction = InputSystem.actions["Look"];
         _aimAction = InputSystem.actions["Aim"];
+        _grabAction = InputSystem.actions["Interact"];
+        _throwAction = InputSystem.actions["Throw"];
         
 
         _mainCamera = Camera.main.transform;
@@ -71,7 +85,7 @@ public class PlayerController : MonoBehaviour
         else
         {
             Movement();
-        }      
+        }
 
         if (_jumpAction.WasPressedThisFrame() && IsGrounded())
         {
@@ -80,11 +94,26 @@ public class PlayerController : MonoBehaviour
 
         Gravity();
 
-        if(_aimAction.WasPressedThisFrame())
+        if (_aimAction.WasPressedThisFrame())
         {
             Attack();
         }
+
+        if (_grabAction.WasPressedThisFrame())
+        {
+            GrabObject();
+        }
+
+        if (_throwAction.WasPressedThisFrame())
+        {
+           // Throw();
+
+            RayTest();
+        }
+
+        
     }
+    
 
     
 
@@ -99,7 +128,7 @@ public class PlayerController : MonoBehaviour
 
            if(enemyScript != null)
            {
-                enemyScript.TakeDamage();
+                enemyScript.TakeDamage(5);
            }
         }
     }
@@ -153,7 +182,7 @@ public class PlayerController : MonoBehaviour
         if (Physics.Raycast(ray, out hit, Mathf.Infinity))
         {
             Vector3 playerForward = hit.point - transform.position;
-            Debug.Log(hit.transform.name);
+           // Debug.Log(hit.transform.name);
             playerForward.y = 0;
             transform.forward = playerForward;
         }
@@ -199,19 +228,174 @@ public class PlayerController : MonoBehaviour
             _playerGravity.y = _gravity;
             _animator.SetBool("IsJumping", false);
         }
-        
+
 
         _controller.Move(_playerGravity * Time.deltaTime);
     }
 
-    bool IsGrounded()
+    /*bool IsGrounded()
     {
         return Physics.CheckSphere(_sensor.position, _sensorRadius, _groundLayer);
-    }
+    }*/
 
-    void OnDrawGizmos()
+    bool IsGrounded()
     {
-        Gizmos.color = Color.green;
-        Gizmos.DrawWireSphere(_sensor.position, _sensorRadius);
+        if (Physics.Raycast(_sensor.position, -transform.up, _sensorRadius, _groundLayer))
+        {
+            Debug.DrawRay(_sensor.position, -transform.up * _sensorRadius, Color.red);
+            return true;
+        }
+        else
+        {
+            Debug.DrawRay(_sensor.position, -transform.up * _sensorRadius, Color.green);
+            return false;
+        }
+
+        void OnDrawGizmos()
+        {
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(_sensor.position, _sensorRadius);
+
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireCube(_hands.position, _handsSensorSize);
+        }
+
+
+        void OnControllerColliderHit(ControllerColliderHit hit)
+        {
+            if (hit.transform.gameObject.tag == "Empujable")
+            {
+                Rigidbody rBody = hit.collider.attachedRigidbody;
+                //Rigidbody rBody = hit.transform.GetComponent<Rigidbody>();
+
+                if (rBody == null || rBody.isKinematic)
+                {
+                    return;
+                }
+
+                Vector3 pushDirection = new Vector3(hit.moveDirection.x, 0, hit.moveDirection.z);
+
+                rBody.linearVelocity = pushDirection * _pushForce / rBody.mass;
+            }
+        }
+
+
+        void GrabObject()
+        {
+
+            if (_grabedObject == null)
+
+            {
+
+
+                Collider[] objectsToGrab = Physics.OverlapBox(_hands.position, _handsSensorSize);
+
+                foreach (Collider item in objectsToGrab)
+                {
+                    IGrabeable grabeableObject = item.GetComponent<IGrabeable>();
+
+                    if (grabeableObject != null)
+                    {
+                        _grabedObject = item.transform;
+                        _grabedObject.SetParent(_hands);
+                        _grabedObject.position = _hands.position;
+                        _grabedObject.GetComponent<Rigidbody>().isKinematic = true;
+                        _grabedObject.rotation = _hands.rotation;
+
+
+                        return;
+                    }
+                }
+
+
+            }
+            else
+            {
+
+                _grabedObject.SetParent(null);
+
+                _grabedObject.GetComponent<Rigidbody>().isKinematic = false;
+
+                _grabedObject = null;
+
+
+
+            }
+        }
+
+        void Throw()
+        {
+
+            if (_grabedObject == null)
+            {
+                return;
+            }
+            Rigidbody grabedBody = _grabedObject.GetComponent<Rigidbody>();
+
+            _grabedObject.SetParent(null);
+            grabedBody.isKinematic = false;
+            grabedBody.AddForce(_mainCamera.transform.forward * _throwForce, ForceMode.Impulse);
+            _grabedObject = null;
+        }
+
+        void RayTest()
+        {
+            //ray cast simple
+
+            if (Physics.Raycast(transform.position, transform.forward, 5))
+            {
+                Debug.Log("hit");
+                Debug.DrawRay(transform.position, transform.forward * 5, Color.red);
+            }
+            else
+            {
+                Debug.DrawRay(transform.position, transform.forward * 5, Color.green);
+            }
+
+            //Raycast "Avanzado"
+            RaycastHit hit;
+            if (Physics.Raycast(transform.position, transform.forward, out hit, 5))
+            {
+                Debug.Log(hit.transform.name);
+                Debug.Log(hit.transform.position);
+                Debug.Log(hit.transform.gameObject.layer);
+                Debug.Log(hit.transform.tag);
+
+                /*if (hit.transform.tag == "Empujable") ;
+                {
+                    Box box = hit.transform.GetComponent<Box>();
+
+                    if (box != null)
+                    {
+                        Debug.Log("cosas");
+                    }
+                }*/
+
+                IDamageable damageable = hit.transform.GetComponent<IDamageable>();
+
+                if (damageable != null)
+                {
+                    damageable.TakeDamage(5);
+                }
+            }
+
+        }
+
+        {
+            Ray ray = Camera.main.ScreenPointToRay(_lookInput);
+            RaycastHit hit;
+            if (Physics.Raycast(ray, out hit2, Mathf.Infinity))
+            {
+                 if (Physics.Raycast(ray, out hit2, Mathf.Infinity))
+            {
+            Vector3 playerForward = hit.point - transform.position;
+           // Debug.Log(hit.transform.name);
+            playerForward.y = 0;
+            transform.forward = playerForward;
+        }
+            }
+
+        }
+
     }
 }
