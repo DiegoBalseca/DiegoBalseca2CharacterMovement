@@ -250,6 +250,7 @@ public class PlayerController : MonoBehaviour
             Debug.DrawRay(_sensor.position, -transform.up * _sensorRadius, Color.green);
             return false;
         }
+    }
 
         void OnDrawGizmos()
         {
@@ -379,23 +380,18 @@ public class PlayerController : MonoBehaviour
                 }
             }
 
-        }
-
-        {
             Ray ray = Camera.main.ScreenPointToRay(_lookInput);
-            RaycastHit hit;
-            if (Physics.Raycast(ray, out hit2, Mathf.Infinity))
-            {
-                 if (Physics.Raycast(ray, out hit2, Mathf.Infinity))
-            {
-            Vector3 playerForward = hit.point - transform.position;
-           // Debug.Log(hit.transform.name);
-            playerForward.y = 0;
-            transform.forward = playerForward;
-        }
-            }
-
+                        RaycastHit hit2;
+                        if (Physics.Raycast(ray, out hit2, Mathf.Infinity))
+                        {
+                            if (Physics.Raycast(ray, out hit2, Mathf.Infinity))
+                        {
+                        Vector3 playerForward = hit2.point - transform.position;
+                    // Debug.Log(hit.transform.name);
+                        playerForward.y = 0;
+                        transform.forward = playerForward;
+                    }
+                        }
         }
 
     }
-}
